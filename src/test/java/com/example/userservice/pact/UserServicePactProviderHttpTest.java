@@ -10,20 +10,22 @@ import au.com.dius.pact.provider.junit.target.Target;
 import au.com.dius.pact.provider.junit.target.TestTarget;
 import au.com.dius.pact.provider.spring.SpringRestPactRunner;
 import com.example.userservice.domain.User;
+import com.example.userservice.logic.dao.UserAlreadyExistsException;
 import com.example.userservice.logic.dao.UserDao;
+import com.example.userservice.logic.dao.UserNotFoundException;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.runner.RunWith;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.mock.mockito.MockBean;
 
-import javax.annotation.PostConstruct;
-import java.util.ArrayList;
-import java.util.List;
+import java.util.Collections;
+
+import static org.mockito.Mockito.*;
 
 @RunWith(SpringRestPactRunner.class)
 @PactFolder("C:\\Users\\Igal\\Desktop\\user-service-consumer\\user-service-consumer\\target\\pacts")
+//@PactBroker(...)
 @Provider("UserServiceProviderHttp")
 @IgnoreNoPactsToVerify
 @SpringBootTest(
@@ -33,25 +35,20 @@ import java.util.List;
 
 public class UserServicePactProviderHttpTest {
 
-    @Autowired
-    private
+    @MockBean
     UserDao userDao;
 
 
     @TestTarget
     public final Target target = new HttpTarget(9514);
 
-    private List<User> usersToDelete = new ArrayList<>();
 
     @After
     public void cleanUp() {
-        usersToDelete.forEach(user -> userDao.delete(Integer.toString(user.getId())));
     }
 
     @Before
-    public void setUp(){
-        this.usersToDelete.clear();
-
+    public void setUp() {
     }
 
 
@@ -62,21 +59,27 @@ public class UserServicePactProviderHttpTest {
 
     @State("user 9876 already exists")
     public void userExists9876() {
-        User user = new User(9876, "first", "last");
-        userDao.save(user);
-        usersToDelete.add(user);
+        mockUser(9876);
     }
 
     @State("user 1111 already exists")
     public void userExists1111() {
-        User user = new User(1111, "first", "last");
-        userDao.save(user);
-        this.usersToDelete.add(user);
+        mockUser(1111);
     }
 
     @State("user 9999 does NOT  exists")
     public void userNotExists() {
+        when(userDao.get("9999")).thenThrow(new UserNotFoundException("9999"));
+    }
 
+
+    private void mockUser(int userId) {
+        User user = new User(userId, "first", "last");
+        String userIdStr = Integer.toString(userId);
+        doThrow(new UserAlreadyExistsException(userIdStr)).when(userDao).save(user);
+        doNothing().when(userDao).delete(userIdStr);
+        when(userDao.get(userIdStr)).thenReturn(user);
+        when(userDao.getAll()).thenReturn(Collections.singletonList(user));
     }
 
 

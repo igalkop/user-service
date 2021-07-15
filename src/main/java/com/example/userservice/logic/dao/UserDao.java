@@ -38,6 +38,5 @@ public class UserDao {
 
     public List<User> getAll() {
         return users;
-
     }
 }
